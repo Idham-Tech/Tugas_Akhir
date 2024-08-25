@@ -20,14 +20,14 @@ data = load_csv('./Keseluruhan (Coba-coba) NonMigas.csv')
 
 # sidebar #
 st.sidebar.write('Data as on [Badan Pusat Statistik](https://www.bps.go.id/id) export value')
-option = st.sidebar.selectbox('What would you like to predicted?',('GRU', 'XGBoost', 'GRU-XGBoost'), key = 'tick')
+option = st.sidebar.selectbox('What would you like to predicted?',('Stacked GRU', 'Bidirectional GRU', 'Attention + GRU', 'STL + GRU','Compare'), key = 'tick')
 st.sidebar.write('You selected:', st.session_state.tick)
 predict = st.sidebar.button('Predict')
 st.sidebar.info('''This Project is used for only learning and development process.😊👩🏻‍🎓👩🏻‍💻''')
 
 try:
     if predict:
-            if option == 'GRU':    
+            if option == 'Stacked GRU':    
                 # show data
                 data_act()
                 st.write(data)
@@ -39,7 +39,33 @@ try:
                 # Proccess prediction
                 proccess(option)
 
-            elif option == 'XGBoost':
+            elif option == 'Bidirectional GRU':
+
+                # show data
+                data_act()
+                st.write(data)
+
+                # visualizations
+                visual_data()
+                plot_actual_data(data['date'], data['NonMigas'])
+
+                # Proccess prediction
+                proccess(option)
+
+            elif option == 'Attention + GRU':
+
+                # show data
+                data_act()
+                st.write(data)
+
+                # visualizations
+                visual_data()
+                plot_actual_data(data['date'], data['NonMigas'])
+
+                # Proccess prediction
+                proccess(option)
+
+            elif option == 'STL + GRU':
 
                 # show data
                 data_act()

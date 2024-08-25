@@ -7,6 +7,11 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from statsmodels.tsa.seasonal import STL
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Layer, GRU, Dense, Dropout, Input
+from tensorflow.keras import layers, models, optimizers
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.optimizers import Adam
 # from tensorflow.keras.models import load_model
 
 def plot_actual_data(dates, data):
@@ -43,10 +48,9 @@ def evaluation(y_test_inv, test_predictions):
     test_rmse = np.sqrt(mean_squared_error(y_test_inv, test_predictions))
     st.write('MAE:', test_mae, '  \nRMSE:', test_rmse, '  \nMAPE:', test_mape)
 
-def stk_gru_models(model):
-    stk_model = model
+def stk_gru_models():
     # Preprocess the data
-    data = pd.read_csv('/content/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Extract 'NonMigas' and normalize
     data_unscaled = data['NonMigas'].values.reshape(-1, 1)
@@ -71,6 +75,23 @@ def stk_gru_models(model):
     X_train, y_train = create_sequences(train, time_steps)
     X_test, y_test = create_sequences(test, time_steps)
 
+    def build_Stacked_GRU(input_shape):
+        model = models.Sequential()
+        model.add(GRU(64, return_sequences=True, input_shape=input_shape))
+        model.add(Dropout(0.2))
+        model.add(GRU(64, return_sequences=True))
+        model.add(GRU(64))
+        model.add(Dense(1))
+        adam = Adam(learning_rate=0.001)
+        model.compile(optimizer=adam, loss='mean_squared_error')
+        return model
+
+    # Set up input shape
+    input_shape = (time_steps, 1)
+
+    # Build the model
+    stk_model = build_Stacked_GRU(input_shape)
+
     history = stk_model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test), verbose=1, validation_split=0.2)
     # Make predictions on the training set
     train_predictions = stk_model.predict(X_train)
@@ -90,7 +111,7 @@ def stk_gru_models(model):
 def bid_gru_models(model):
     bid_model = model
     # Preprocess the data
-    data = pd.read_csv('/content/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Extract 'NonMigas' and normalize
     data_unscaled = data['NonMigas'].values.reshape(-1, 1)
@@ -134,7 +155,7 @@ def bid_gru_models(model):
 def att_gru_models(model):
     model_attention_gru = model
     # Preprocess the data
-    data = pd.read_csv('/content/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Extract 'NonMigas' and normalize
     data_unscaled = data['NonMigas'].values.reshape(-1, 1)
@@ -184,7 +205,7 @@ def att_gru_models(model):
 def stl_gru_models(model):
     stl_model = model
     # Preprocess the data
-    data = pd.read_csv('/content/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Split data into training and testing sets (80% train, 20% test)
     train_size = int(len(data) * 0.8)
@@ -277,23 +298,23 @@ def write_forecast():
 def proccess(option):
     # load model
     if option == 'Stacked GRU':
-        model = tf.keras.models.load_model('.models/stk_modelgru.h5')
-        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
+        # model = tf.keras.models.load_model('./models/stk_modelgru.h5')
+        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models()
             
-        visual_actpred_data()
-        plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
-        plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        # visual_actpred_data()
+        # plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
+        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
             
     
         #evaluation
-        write_evaluation()
-        evaluation(y_test_inv, test_predictions)
+        # write_evaluation()
+        # evaluation(y_test_inv, test_predictions)
         
         #forcasting
-        forcast_gru(model, normalizedData, seq_length, scaler)
+        # forcast_gru(model, normalizedData, seq_length, scaler)
 
     elif option == 'Bidirectional GRU':
-        model = tf.keras.models.load_model('.models/bid_modelgru.h5')
+        model = tf.keras.models.load_model('./models/bid_modelgru.h5')
         df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
             
         visual_actpred_data()
@@ -308,8 +329,8 @@ def proccess(option):
         #forcasting
         forcast_gru(model, normalizedData, seq_length, scaler)    
 
-    elif option == 'Attention Based + GRU':
-        model = tf.keras.models.load_model('.models/att_modelgru.h5')
+    elif option == 'Attention + GRU':
+        model = tf.keras.models.load_model('./models/att_modelgru.h5')
         df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
             
         visual_actpred_data()
@@ -325,7 +346,7 @@ def proccess(option):
         forcast_gru(model, normalizedData, seq_length, scaler)     
 
     elif option == 'STL + GRU':
-        model = tf.keras.models.load_model('.models/stl_modelgru.h5')
+        model = tf.keras.models.load_model('./models/stl_modelgru.h5')
         df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
             
         visual_actpred_data()
