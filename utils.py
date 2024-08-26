@@ -39,16 +39,17 @@ def plot_predict(dates_test, test_act, test_pred):
     st.plotly_chart(figgrutest)
 
 
-def forcast_gru(model, data, seq_length, scaler):
-    last_sequence = data['NonMigas'][-seq_length:].values.reshape((1, seq_length, 1))
+def forcast(model, data_scaled, time_steps, scaler):
+    last_sequence = data_scaled[-time_steps:].reshape((1, time_steps, 1))
     next_month_prediction = model.predict(last_sequence)
     next_month_prediction = scaler.inverse_transform(next_month_prediction)
-    st.write('🙌🏻Next month export price forecast:', next_month_prediction)
+    return next_month_prediction
+    
 
 
 def evaluation(y_test_inv, test_predictions):
     test_mae = mean_absolute_error(y_test_inv, test_predictions)
-    test_mape = mean_absolute_percentage_error(y_test_inv, test_predictions)
+    test_mape = mean_absolute_percentage_error(y_test_inv, test_predictions) * 100
     test_rmse = np.sqrt(mean_squared_error(y_test_inv, test_predictions))
     st.write('MAE:', test_mae, '  \nRMSE:', test_rmse, '  \nMAPE:', test_mape)
 
@@ -110,7 +111,9 @@ def stk_gru_models():
     stk_test_predictions_inv = scaler.inverse_transform(test_predictions)
     stk_y_test_inv = scaler.inverse_transform(y_test.reshape(-1, 1))
 
-    return stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler
+    next_month = forcast(stk_model, data_scaled, time_steps, scaler)
+
+    return stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler, next_month
 
 def bid_gru_models():
     # Preprocess the data
@@ -168,6 +171,8 @@ def bid_gru_models():
     # Rescale predictions back to original values
     bid_train_predictions_inv = scaler.inverse_transform(train_predictions)
     bid_y_train_inv = scaler.inverse_transform(y_train.reshape(-1, 1))
+
+    forcast = forcast(bid_model, data_scaled, time_steps, scaler)
 
     return bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler
 
@@ -377,7 +382,7 @@ def proccess(option):
     # load model
     if option == 'Stacked GRU':
         # model = tf.keras.models.load_model('./models/stk_modelgru.h5')
-        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler= stk_gru_models()
+        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler, next_month= stk_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -388,10 +393,10 @@ def proccess(option):
     
         #evaluation
         write_evaluation()
-        # evaluation(y_test_inv, test_predictions)
+        evaluation(stk_y_test_inv, stk_test_predictions_inv)
         
         #forcasting
-        # forcast_gru(model, normalizedData, seq_length, scaler)
+        st.write('🙌🏻Next month export price forecast:', next_month)
 
     elif option == 'Bidirectional GRU':
         # model = tf.keras.models.load_model('./models/bid_modelgru.h5')
