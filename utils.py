@@ -20,15 +20,19 @@ def plot_actual_data(dates, data):
     fig.layout.update(title_text='Non-Oil and Gas', xaxis_rangeslider_visible=True, hovermode = 'x')
     st.plotly_chart(fig)
 
-def plot_train_gru(dates_train, train_act, train_pred):
+def plot_train(dates_train, train_act, train_pred):
     figgrutrain = go.Figure()
+    train_act = train_act.flatten()
+    train_pred = train_pred.flatten()
     figgrutrain.layout.update(title_text=('Actual and Predicted With GRU MODEL (Train)'), xaxis_rangeslider_visible=True, hovermode = 'x')
     figgrutrain.add_trace(go.Scatter(x=dates_train, y=train_act, name='Actual Value'))
     figgrutrain.add_trace(go.Scatter(x=dates_train, y=train_pred, name='Predicted Low Price'))
     st.plotly_chart(figgrutrain)
 
-def plot_predict_gru( dates_test, test_act, test_pred):
+def plot_predict(dates_test, test_act, test_pred):
     figgrutest = go.Figure()
+    test_act = test_act.flatten()
+    test_pred = test_pred.flatten()
     figgrutest.layout.update(title_text=('Actual and Predicted With GRU MODEL (Test)'), xaxis_rangeslider_visible=True, hovermode = 'x')
     figgrutest.add_trace(go.Scatter(x=dates_test, y=test_act, name='Actual Value'))
     figgrutest.add_trace(go.Scatter(x=dates_test, y=test_pred, name='Predicted Low Price'))
@@ -106,10 +110,9 @@ def stk_gru_models():
     stk_test_predictions_inv = scaler.inverse_transform(test_predictions)
     stk_y_test_inv = scaler.inverse_transform(y_test.reshape(-1, 1))
 
-    return stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data_scaled, time_steps, scaler
+    return stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler
 
-def bid_gru_models(model):
-    bid_model = model
+def bid_gru_models():
     # Preprocess the data
     data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
@@ -136,6 +139,22 @@ def bid_gru_models(model):
     X_train, y_train = create_sequences(train, time_steps)
     X_test, y_test = create_sequences(test, time_steps)
 
+    def build_bidirectional_gru(input_shape):
+        model = models.Sequential()
+        model.add(layers.Bidirectional(layers.GRU(64, return_sequences=True, kernel_regularizer=l2(0.01)), input_shape=input_shape))
+        model.add(Dropout(0.2))
+        model.add(layers.Bidirectional(layers.GRU(64)))
+        model.add(layers.Dense(1))
+        adam = Adam(learning_rate=0.001)
+        model.compile(optimizer=adam, loss='mse')
+        return model
+
+    # Set up input shape
+    input_shape = (time_steps, 1)
+
+    # Build the model
+    bid_model = build_bidirectional_gru(input_shape)
+
     history = bid_model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test))    # Make predictions on the training set
 
     # Make predictions
@@ -150,10 +169,9 @@ def bid_gru_models(model):
     bid_train_predictions_inv = scaler.inverse_transform(train_predictions)
     bid_y_train_inv = scaler.inverse_transform(y_train.reshape(-1, 1))
 
-    return bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data_scaled, time_steps, scaler
+    return bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler
 
-def att_gru_models(model):
-    model_attention_gru = model
+def att_gru_models():
     # Preprocess the data
     data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
@@ -174,7 +192,7 @@ def att_gru_models(model):
             Y.append(data[i + time_step, 0])
         return np.array(X), np.array(Y)
 
-    time_step = 3  # Menggunakan 12 bulan terakhir untuk memprediksi nilai berikutnya
+    time_step = 3 
 
     # Siapkan data training dan testing
     X_train, Y_train = create_dataset(train, time_step)
@@ -183,6 +201,59 @@ def att_gru_models(model):
     # Ubah input menjadi [samples, time steps, features]
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
     X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+
+    class AttentionLayer(Layer):
+        def __init__(self, **kwargs):
+            super(AttentionLayer, self).__init__(**kwargs)
+
+        def build(self, input_shape):
+            self.W = self.add_weight(name="att_weight", shape=(input_shape[-1], input_shape[-1]), initializer="normal")
+            self.b = self.add_weight(name="att_bias", shape=(input_shape[-1],), initializer="zeros")
+            self.U = self.add_weight(name="att_u", shape=(input_shape[-1],), initializer="normal")
+            super(AttentionLayer, self).build(input_shape)
+
+        def call(self, x):
+            # Compute attention scores
+            u_score = tf.tanh(tf.tensordot(x, self.W, axes=1) + self.b)
+            u_weight = tf.tensordot(u_score, self.U, axes=1)
+            att_weight = tf.nn.softmax(u_weight, axis=1)
+
+            # Weighted sum of inputs according to attention scores
+            output = x * tf.expand_dims(att_weight, -1)
+            return tf.reduce_sum(output, axis=1)
+
+    def build_attention_gru_model(time_steps, features):
+        inputs = Input(shape=(time_steps, features))
+
+        # 1st GRU layer with return sequences and L2 regularization
+        gru_output = GRU(64, return_sequences=True, kernel_regularizer=l2(0.01))(inputs)
+        dropout_1 = Dropout(0.2)(gru_output)  # Dropout layer
+
+        # 2nd GRU layer with return sequences and L2 regularization
+        gru_output_2 = GRU(64, return_sequences=True)(dropout_1)
+        # Dropout layer
+
+        # 3rd GRU layer with return sequences
+        gru_output_3 = GRU(64, return_sequences=True)(gru_output_2)
+        # Dropout layer
+
+        # Attention Layer
+        attention_output = AttentionLayer()(gru_output_3)
+
+        # Output layer (for regression)
+        output = Dense(1)(attention_output)
+
+        # Define the model
+        model = Model(inputs=inputs, outputs=output)
+
+        # Compile the model
+        adam = Adam(learning_rate=0.001)
+        model.compile(optimizer=adam, loss='mean_squared_error')
+        return model
+
+
+    # Build the model
+    model_attention_gru = build_attention_gru_model(time_steps=time_step, features=1)
 
     history = model_attention_gru.fit(X_train, Y_train, epochs=20, batch_size=32, verbose=1, validation_data=(X_test, Y_test))
 
@@ -200,10 +271,10 @@ def att_gru_models(model):
     # Inverse transform actual Y_test values
     att_Y_train_inv = scaler.inverse_transform(Y_train.reshape(-1, 1))
 
-    return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data_scaled, time_steps, scaler
+    return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data_scaled, time_step, scaler
 
-def stl_gru_models(model):
-    stl_model = model
+def stl_gru_models():
+    # stl_model = model
     # Preprocess the data
     data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
     
@@ -237,6 +308,13 @@ def stl_gru_models(model):
 
     # Reshape for GRU input (samples, time steps, features)
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+
+    stl_model = Sequential()
+    stl_model.add(GRU(64, return_sequences=True, input_shape=(time_step, 1)))
+    stl_model.add(GRU(64))
+    stl_model.add(Dense(1))
+    adam = Adam(learning_rate=0.001)
+    stl_model.compile(optimizer='adam', loss='mean_squared_error')
 
     history = stl_model.fit(X_train, Y_train, epochs=20, batch_size=32, verbose=1, validation_split=0.2)
     
@@ -299,89 +377,91 @@ def proccess(option):
     # load model
     if option == 'Stacked GRU':
         # model = tf.keras.models.load_model('./models/stk_modelgru.h5')
-        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models()
+        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler= stk_gru_models()
             
-        # visual_actpred_data()
-        # plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
-        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        visual_actpred_data()
+        data_size = int(len(data) * 0.8)
+        date_train, date_test = data[:data_size], data[data_size:]
+        plot_train(date_train.index, stk_y_train_inv, stk_train_predictions_inv)
+        plot_predict(date_test.index, stk_y_test_inv, stk_test_predictions_inv)
             
     
         #evaluation
-        # write_evaluation()
+        write_evaluation()
         # evaluation(y_test_inv, test_predictions)
         
         #forcasting
         # forcast_gru(model, normalizedData, seq_length, scaler)
 
     elif option == 'Bidirectional GRU':
-        model = tf.keras.models.load_model('./models/bid_modelgru.h5')
-        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
+        # model = tf.keras.models.load_model('./models/bid_modelgru.h5')
+        bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler= bid_gru_models()
             
         visual_actpred_data()
-        plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
-        plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        # plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
+        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
             
     
         #evaluation
         write_evaluation()
-        evaluation(y_test_inv, test_predictions)
+        # evaluation(y_test_inv, test_predictions)
         
         #forcasting
-        forcast_gru(model, normalizedData, seq_length, scaler)    
+        # forcast_gru(model, normalizedData, seq_length, scaler)    
 
     elif option == 'Attention + GRU':
-        model = tf.keras.models.load_model('./models/att_modelgru.h5')
-        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
+        # model = tf.keras.models.load_model('./models/att_modelgru.h5')
+        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data_scaled, time_step, scaler= att_gru_models()
             
         visual_actpred_data()
-        plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
-        plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        # plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
+        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
             
     
         #evaluation
         write_evaluation()
-        evaluation(y_test_inv, test_predictions)
+        # evaluation(y_test_inv, test_predictions)
         
         #forcasting
-        forcast_gru(model, normalizedData, seq_length, scaler)     
+        # forcast_gru(model, normalizedData, seq_length, scaler)     
 
     elif option == 'STL + GRU':
-        model = tf.keras.models.load_model('./models/stl_modelgru.h5')
-        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= stk_gru_models(model)
+        # model = tf.keras.models.load_model('./models/stl_modelgru.h5')
+        final_predictions_test, final_predictions_train, scaler, data= stl_gru_models()
             
         visual_actpred_data()
-        plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
-        plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        # plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
+        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
             
     
         #evaluation
         write_evaluation()
-        evaluation(y_test_inv, test_predictions)
+        # evaluation(y_test_inv, test_predictions)
         
         #forcasting
-        forcast_gru(model, normalizedData, seq_length, scaler)       
+        # forcast_gru(model, normalizedData, seq_length, scaler)       
 
 
 
     else:
-        model = tf.keras.models.load_model('modelgru.h5')
-        model_pre_shift = xgb.XGBRegressor()
-        model_pre_shift.load_model('./model_pre_shift.json')
-        model_post_shift = xgb.XGBRegressor()
-        model_post_shift.load_model('./model_post_shift.json')
-        df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= gru_models(model)
-        data, model_post_shift, post_shift_data, y_post_shift, y_pred_post_shift, pre_shift_data, y_pre_shift, y_train_pred_pre_shift_full, scaler = model_xgboost(model_pre_shift,model_post_shift)
-        data2, y_test_actual, final_preds, meta_learner, stacked_test = model_hybrid(model,model_pre_shift,model_post_shift)
+        # model = tf.keras.models.load_model('modelgru.h5')
+        # model_pre_shift = xgb.XGBRegressor()
+        # model_pre_shift.load_model('./model_pre_shift.json')
+        # model_post_shift = xgb.XGBRegressor()
+        # model_post_shift.load_model('./model_post_shift.json')
+        # df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= gru_models(model)
+        # data, model_post_shift, post_shift_data, y_post_shift, y_pred_post_shift, pre_shift_data, y_pre_shift, y_train_pred_pre_shift_full, scaler = model_xgboost(model_pre_shift,model_post_shift)
+        # data2, y_test_actual, final_preds, meta_learner, stacked_test = model_hybrid(model,model_pre_shift,model_post_shift)
 
-        visual_actpred_data()
-        st.write('GRU')
-        plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        # visual_actpred_data()
+        # st.write('GRU')
+        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
         
-        st.write('XGBoost')
-        plot_predict_xgboost(post_shift_data, y_post_shift, y_pred_post_shift)
+        # st.write('XGBoost')
+        # plot_predict_xgboost(post_shift_data, y_post_shift, y_pred_post_shift)
         
-        st.write('GRU-XGBoost')
-        plot_predict_hybrid(data2, y_test_actual, final_preds)
+        # st.write('GRU-XGBoost')
+        # plot_predict_hybrid(data2, y_test_actual, final_preds)
 
         #evaluation
         write_evaluation()
