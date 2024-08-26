@@ -38,21 +38,21 @@ def plot_predict(dates_test, test_act, test_pred):
     figgrutest.add_trace(go.Scatter(x=dates_test, y=test_pred, name='Predicted Low Price'))
     st.plotly_chart(figgrutest)
 
-def stl_plot_train(dates_train, train):
+def stl_plot_train(dates_train, act, train):
     figgrutrain = go.Figure()
     date_train = dates_train.index
-    train_act = dates_train['NonMigas'][-len(train):]
-    train_pred = train
+    train_act = act
+    train_pred = train[:]
     figgrutrain.layout.update(title_text=('Actual and Predicted With GRU MODEL (Train)'), xaxis_rangeslider_visible=True, hovermode = 'x')
     figgrutrain.add_trace(go.Scatter(x=date_train, y=train_act, name='Actual Value'))
     figgrutrain.add_trace(go.Scatter(x=date_train, y=train_pred, name='Predicted Low Price'))
     st.plotly_chart(figgrutrain)
 
-def stl_plot_predict(dates_test, test):
+def stl_plot_predict(dates_test, act, test):
     figgrutest = go.Figure()
-    date_test = dates_test
-    test_act = dates_test['NonMigas'][-len(test):]
-    test_pred = test
+    date_test = dates_test.index
+    test_act = act
+    test_pred = test[:]
     figgrutest.layout.update(title_text=('Actual and Predicted With GRU MODEL (Test)'), xaxis_rangeslider_visible=True, hovermode = 'x')
     figgrutest.add_trace(go.Scatter(x=date_test, y=test_act, name='Actual Value'))
     figgrutest.add_trace(go.Scatter(x=date_test, y=test_pred, name='Predicted Low Price'))
@@ -154,8 +154,9 @@ def stk_gru_models():
     stk_y_test_inv = scaler.inverse_transform(y_test.reshape(-1, 1))
 
     next_month = forcast(stk_model, data_scaled, time_steps, scaler)
+    stk_next_month = np.float64(next_month)
 
-    return stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler, next_month
+    return stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, stk_next_month
 
 def bid_gru_models():
     # Preprocess the data
@@ -215,8 +216,9 @@ def bid_gru_models():
     bid_y_train_inv = scaler.inverse_transform(y_train.reshape(-1, 1))
 
     next_month = forcast(bid_model, data_scaled, time_steps, scaler)
+    bid_next_month = np.float64(next_month)
 
-    return bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler, next_month
+    return bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, bid_next_month
 
 def att_gru_models():
     # Preprocess the data
@@ -319,8 +321,9 @@ def att_gru_models():
     att_Y_train_inv = scaler.inverse_transform(Y_train.reshape(-1, 1))
 
     next_month = forcast(model_attention_gru, data_scaled, time_step, scaler)
+    att_next_month = np.float64(next_month)
 
-    return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler,next_month
+    return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, att_next_month
 
 def stl_gru_models():
     # stl_model = model
@@ -399,9 +402,12 @@ def stl_gru_models():
     # Combine GRU predictions with trend and seasonal components from the train set
     final_predictions_train = trend_train[-len(stl_predictions_train):] + seasonal_train[-len(stl_predictions_train):] + stl_predictions_train
 
-    next_month = forcast_stl(stl_model, data, time_step, scaler)
+    stl_y_train_inv = train_data['NonMigas'][-len(final_predictions_train):]
+    stl_y_test_inv = test_data['NonMigas'][-len(final_predictions_test):]
 
-    return final_predictions_test, final_predictions_train, scaler, data, next_month
+    stl_next_month = forcast_stl(stl_model, data, time_step, scaler)
+
+    return final_predictions_test, stl_y_test_inv, stl_y_train_inv, final_predictions_train, data, stl_next_month
 
 def write_gru():
     st.write('Evaluation of GRU Model')
@@ -428,7 +434,7 @@ def proccess(option):
     # load model
     if option == 'Stacked GRU':
         # model = tf.keras.models.load_model('./models/stk_modelgru.h5')
-        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler, next_month= stk_gru_models()
+        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler, stk_next_month= stk_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -442,11 +448,11 @@ def proccess(option):
         evaluation(stk_y_test_inv, stk_test_predictions_inv)
         
         #forcasting
-        st.write('🙌🏻Next month export price forecast:', next_month)
+        st.write('🙌🏻Next month export price forecast:', stk_next_month)
 
     elif option == 'Bidirectional GRU':
         # model = tf.keras.models.load_model('./models/bid_modelgru.h5')
-        bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler, next_month= bid_gru_models()
+        bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler, bid_next_month= bid_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -457,14 +463,14 @@ def proccess(option):
     
         #evaluation
         write_evaluation()
-        # evaluation(y_test_inv, test_predictions)
+        evaluation(bid_y_test_inv, bid_test_predictions_inv)
         
         #forcasting
-        st.write('🙌🏻Next month export price forecast:', next_month)   
+        st.write('🙌🏻Next month export price forecast:', bid_next_month)   
 
     elif option == 'Attention + GRU':
         # model = tf.keras.models.load_model('./models/att_modelgru.h5')
-        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler, next_month= att_gru_models()
+        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler, att_next_month= att_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -475,73 +481,81 @@ def proccess(option):
     
         #evaluation
         write_evaluation()
-        # evaluation(y_test_inv, test_predictions)
+        evaluation(att_Y_test_inv, test_predictions_attention_gru_inv)
         
         #forcasting
-        st.write('🙌🏻Next month export price forecast:', next_month)     
+        st.write('🙌🏻Next month export price forecast:', att_next_month)     
 
     elif option == 'STL + GRU':
         # model = tf.keras.models.load_model('./models/stl_modelgru.h5')
-        final_predictions_test, final_predictions_train, scaler, data, next_month= stl_gru_models()
+        stl_final_predictions_test, stl_y_test_inv, stl_y_train_inv, stl_final_predictions_train, scaler, data, stl_next_month= stl_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
         date_train, date_test = data[:data_size], data[data_size:]
-        stl_plot_train(date_train, final_predictions_train)
-        stl_plot_predict(date_test, final_predictions_test)
+        stl_plot_train(date_train, stl_y_train_inv, stl_final_predictions_train)
+        stl_plot_predict(date_test, stl_y_test_inv, stl_final_predictions_test)
             
     
         #evaluation
         write_evaluation()
-        # evaluation(y_test_inv, test_predictions)
+        evaluation(stl_y_test_inv, stl_final_predictions_test)
         
         #forcasting
-        st.write('🙌🏻Next month export price forecast:', next_month)       
+        st.write('🙌🏻Next month export price forecast:', stl_next_month)       
 
 
 
     else:
-        # model = tf.keras.models.load_model('modelgru.h5')
-        # model_pre_shift = xgb.XGBRegressor()
-        # model_pre_shift.load_model('./model_pre_shift.json')
-        # model_post_shift = xgb.XGBRegressor()
-        # model_post_shift.load_model('./model_post_shift.json')
-        # df_train, df_test, y_test_inv, test_predictions, normalizedData, seq_length, scaler= gru_models(model)
-        # data, model_post_shift, post_shift_data, y_post_shift, y_pred_post_shift, pre_shift_data, y_pre_shift, y_train_pred_pre_shift_full, scaler = model_xgboost(model_pre_shift,model_post_shift)
-        # data2, y_test_actual, final_preds, meta_learner, stacked_test = model_hybrid(model,model_pre_shift,model_post_shift)
+        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, stk_next_month= stk_gru_models()
+        bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, bid_next_month= bid_gru_models()
+        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, att_next_month= att_gru_models()
+        stl_final_predictions_test, stl_y_test_inv, stl_y_train_inv, stl_final_predictions_train, data, stl_next_month= stl_gru_models()
 
-        # visual_actpred_data()
-        # st.write('GRU')
-        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        visual_actpred_data()
+        data_size = int(len(data) * 0.8)
+        date_train, date_test = data[:data_size], data[data_size:]
         
-        # st.write('XGBoost')
-        # plot_predict_xgboost(post_shift_data, y_post_shift, y_pred_post_shift)
+        st.write('Stacked GRU')
+        plot_predict(date_test.index, stk_y_test_inv, stk_test_predictions_inv)
         
-        # st.write('GRU-XGBoost')
-        # plot_predict_hybrid(data2, y_test_actual, final_preds)
+        st.write('Bidirectional GRU')
+        plot_predict(date_test.index, bid_y_test_inv, bid_test_predictions_inv)
+        
+        st.write('Attention Based - GRU')
+        plot_predict(date_test.index, att_Y_test_inv, test_predictions_attention_gru_inv)
+
+        st.write('STL - GRU')
+        stl_plot_predict(date_test, stl_y_test_inv, stl_final_predictions_test)
 
         #evaluation
         write_evaluation()
-        col4, col5, col6 = st.columns(3)
+        col4, col5, col6, col7 = st.columns(4)
         with col4:
-            st.write('GRU')
-            evaluation(y_test_inv, test_predictions)
+            st.write('Stacked GRU')
+            evaluation(stk_y_test_inv, stk_test_predictions_inv)
         with col5:
-            st.write('XGBoost')
-            evaluation(y_post_shift,  y_pred_post_shift)
+            st.write('Bidirectional GRU')
+            evaluation(bid_y_test_inv,  bid_test_predictions_inv)
         with col6:
-            st.write('GRU-XGBoost')
-            evaluation(y_test_actual,  final_preds)
+            st.write('Attention Based - GRU')
+            evaluation(att_Y_test_inv,  test_predictions_attention_gru_inv)
+        with col7:
+            st.write('STL - GRU')
+            evaluation(stl_y_test_inv,  stl_final_predictions_test)
 
         #forcasting
         write_forecast()
-        col7, col8, col9 = st.columns(3)
-        with col7:
-            st.write('GRU')
-            forcast_gru(model, normalizedData, seq_length, scaler)
+        col8, col9, col10, col11 = st.columns(4)
         with col8:
-            st.write('XGBoost')
-            forcast_xgboost(post_shift_data, data, model_post_shift, scaler)
+            st.write('Stacked GRU')
+            st.write('🙌🏻Next month export price forecast:', stk_next_month)
         with col9:
-            st.write('GRU-XGBoost')
-            forcast_hybrid(stacked_test, meta_learner, scaler)  
+            st.write('Bidirectional GRU')
+            st.write('🙌🏻Next month export price forecast:', bid_next_month)
+        with col10:
+            st.write('Attention Based - GRU')
+            st.write('🙌🏻Next month export price forecast:', att_next_month)  
+        with col11:
+            st.write('STL - GRU')
+            st.write('🙌🏻Next month export price forecast:', stl_next_month)  
