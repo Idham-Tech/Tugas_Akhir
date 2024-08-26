@@ -38,6 +38,25 @@ def plot_predict(dates_test, test_act, test_pred):
     figgrutest.add_trace(go.Scatter(x=dates_test, y=test_pred, name='Predicted Low Price'))
     st.plotly_chart(figgrutest)
 
+def stl_plot_train(dates_train, train):
+    figgrutrain = go.Figure()
+    date_train = dates_train.index
+    train_act = dates_train['NonMigas'][-len(train):]
+    train_pred = train
+    figgrutrain.layout.update(title_text=('Actual and Predicted With GRU MODEL (Train)'), xaxis_rangeslider_visible=True, hovermode = 'x')
+    figgrutrain.add_trace(go.Scatter(x=date_train, y=train_act, name='Actual Value'))
+    figgrutrain.add_trace(go.Scatter(x=date_train, y=train_pred, name='Predicted Low Price'))
+    st.plotly_chart(figgrutrain)
+
+def stl_plot_predict(dates_test, test):
+    figgrutest = go.Figure()
+    date_test = dates_test
+    test_act = dates_test['NonMigas'][-len(test):]
+    test_pred = test
+    figgrutest.layout.update(title_text=('Actual and Predicted With GRU MODEL (Test)'), xaxis_rangeslider_visible=True, hovermode = 'x')
+    figgrutest.add_trace(go.Scatter(x=date_test, y=test_act, name='Actual Value'))
+    figgrutest.add_trace(go.Scatter(x=date_test, y=test_pred, name='Predicted Low Price'))
+    st.plotly_chart(figgrutest)
 
 def forcast(model, data_scaled, time_steps, scaler):
     last_sequence = data_scaled[-time_steps:].reshape((1, time_steps, 1))
@@ -45,7 +64,30 @@ def forcast(model, data_scaled, time_steps, scaler):
     next_month_prediction = scaler.inverse_transform(next_month_prediction)
     return next_month_prediction
     
+def forcast_stl(model, data, time_step, scaler):
+    stl_last = STL(data['NonMigas'], seasonal=13)
+    result_last = stl_last.fit()
 
+    # Extract the last trend and seasonal components
+    last_trend = result_last.trend[-1]
+    last_seasonal = result_last.seasonal[-1]
+
+    # Step 2: Use the GRU model to predict the residual for the next month
+    # We use the last few residuals from the training set to predict the next one
+    residuals = result_last.resid
+    residuals_scaled = scaler.transform(residuals.values.reshape(-1, 1))
+    last_residuals = residuals_scaled[-time_step:]
+
+    X_next = last_residuals.reshape(1, time_step, 1)
+
+
+    # Predict the residual for the next month
+    predicted_residual_next = model.predict(X_next)
+    predicted_residual_next = scaler.inverse_transform(predicted_residual_next).flatten()[0]
+
+    # Step 3: Combine the predicted residual with the last known trend and seasonal components
+    next_month = last_trend + last_seasonal + predicted_residual_next
+    return next_month
 
 def evaluation(y_test_inv, test_predictions):
     test_mae = mean_absolute_error(y_test_inv, test_predictions)
@@ -276,7 +318,9 @@ def att_gru_models():
     # Inverse transform actual Y_test values
     att_Y_train_inv = scaler.inverse_transform(Y_train.reshape(-1, 1))
 
-    return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler
+    next_month = forcast(model_attention_gru, data_scaled, time_step, scaler)
+
+    return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler,next_month
 
 def stl_gru_models():
     # stl_model = model
@@ -308,7 +352,7 @@ def stl_gru_models():
             Y.append(data[i + time_step, 0])
         return np.array(X), np.array(Y)
 
-    time_step = 12  # Example: use past 12 months to predict the next value
+    time_step = 3  # Example: use past 12 months to predict the next value
     X_train, Y_train = create_dataset(residual_train_scaled, time_step)
 
     # Reshape for GRU input (samples, time steps, features)
@@ -355,7 +399,9 @@ def stl_gru_models():
     # Combine GRU predictions with trend and seasonal components from the train set
     final_predictions_train = trend_train[-len(stl_predictions_train):] + seasonal_train[-len(stl_predictions_train):] + stl_predictions_train
 
-    return final_predictions_test, final_predictions_train, scaler, data
+    next_month = forcast_stl(stl_model, data, time_step, scaler)
+
+    return final_predictions_test, final_predictions_train, scaler, data, next_month
 
 def write_gru():
     st.write('Evaluation of GRU Model')
@@ -418,7 +464,7 @@ def proccess(option):
 
     elif option == 'Attention + GRU':
         # model = tf.keras.models.load_model('./models/att_modelgru.h5')
-        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler= att_gru_models()
+        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler, next_month= att_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -432,15 +478,17 @@ def proccess(option):
         # evaluation(y_test_inv, test_predictions)
         
         #forcasting
-        # forcast_gru(model, normalizedData, seq_length, scaler)     
+        st.write('🙌🏻Next month export price forecast:', next_month)     
 
     elif option == 'STL + GRU':
         # model = tf.keras.models.load_model('./models/stl_modelgru.h5')
-        final_predictions_test, final_predictions_train, scaler, data= stl_gru_models()
+        final_predictions_test, final_predictions_train, scaler, data, next_month= stl_gru_models()
             
         visual_actpred_data()
-        # plot_train_gru(df_train['Date'], df_train['Actual'], df_train['Predicted'])
-        # plot_predict_gru(df_test['Date'], df_test['Actual'], df_test['Predicted'])
+        data_size = int(len(data) * 0.8)
+        date_train, date_test = data[:data_size], data[data_size:]
+        stl_plot_train(date_train, final_predictions_train)
+        stl_plot_predict(date_test, final_predictions_test)
             
     
         #evaluation
@@ -448,7 +496,7 @@ def proccess(option):
         # evaluation(y_test_inv, test_predictions)
         
         #forcasting
-        # forcast_gru(model, normalizedData, seq_length, scaler)       
+        st.write('🙌🏻Next month export price forecast:', next_month)       
 
 
 
