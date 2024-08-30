@@ -103,7 +103,7 @@ def evaluation(y_test_inv, test_predictions):
 
 def stk_gru_models():
     # Preprocess the data
-    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Extract 'NonMigas' and normalize
     data_unscaled = data['NonMigas'].values.reshape(-1, 1)
@@ -166,7 +166,7 @@ def stk_gru_models():
 
 def bid_gru_models():
     # Preprocess the data
-    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Extract 'NonMigas' and normalize
     data_unscaled = data['NonMigas'].values.reshape(-1, 1)
@@ -228,7 +228,7 @@ def bid_gru_models():
 
 def att_gru_models():
     # Preprocess the data
-    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Extract 'NonMigas' and normalize
     data_unscaled = data['NonMigas'].values.reshape(-1, 1)
@@ -334,7 +334,7 @@ def att_gru_models():
 def stl_gru_models():
     # stl_model = model
     # Preprocess the data
-    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan (Coba-coba) NonMigas.csv', parse_dates=['date'], index_col='date')
+    data = pd.read_csv('/workspaces/Tugas_Akhir/Keseluruhan NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Split data into training and testing sets (80% train, 20% test)
     train_size = int(len(data) * 0.8)

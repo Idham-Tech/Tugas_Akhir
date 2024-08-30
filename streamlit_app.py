@@ -15,7 +15,7 @@ def load_csv(path: str):
     data = data.sort_values('date')
     return data
 
-data = load_csv('./Keseluruhan (Coba-coba) NonMigas.csv')
+data = load_csv('/workspaces/Tugas_Akhir/Keseluruhan NonMigas.csv')
 # st.write(df)
 
 # sidebar #
