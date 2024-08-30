@@ -58,6 +58,11 @@ def stl_plot_predict(dates_test, act, test):
     figgrutest.add_trace(go.Scatter(x=date_test, y=test_pred, name='Predicted Low Price'))
     st.plotly_chart(figgrutest)
 
+def comp_plot(df):
+    st.bar_chart(df,x='Model', y='MAE', stack=False)
+    st.bar_chart(df,x='Model', y='RMSE', stack=False)
+    st.bar_chart(df,x='Model', y='MAPE', stack=False)
+
 def forcast(model, data_scaled, time_steps, scaler):
     last_sequence = data_scaled[-time_steps:].reshape((1, time_steps, 1))
     next_month_prediction = model.predict(last_sequence)
@@ -94,6 +99,7 @@ def evaluation(y_test_inv, test_predictions):
     test_mape = mean_absolute_percentage_error(y_test_inv, test_predictions) * 100
     test_rmse = np.sqrt(mean_squared_error(y_test_inv, test_predictions))
     st.write('MAE:', test_mae, '  \nRMSE:', test_rmse, '  \nMAPE:', test_mape)
+    return test_mae, test_rmse, test_mape
 
 def stk_gru_models():
     # Preprocess the data
@@ -534,16 +540,25 @@ def proccess(option):
         col4, col5, col6, col7 = st.columns(4)
         with col4:
             st.write('Stacked GRU')
-            evaluation(stk_y_test_inv, stk_test_predictions_inv)
+            stk_mae,stk_rmse,stk_mape = evaluation(stk_y_test_inv, stk_test_predictions_inv)
         with col5:
             st.write('Bidirectional GRU')
-            evaluation(bid_y_test_inv,  bid_test_predictions_inv)
+            bid_mae,bid_rmse,bid_mape = evaluation(bid_y_test_inv,  bid_test_predictions_inv)
         with col6:
             st.write('Attention Based - GRU')
-            evaluation(att_Y_test_inv,  test_predictions_attention_gru_inv)
+            att_mae,att_rmse,att_mape = evaluation(att_Y_test_inv,  test_predictions_attention_gru_inv)
         with col7:
             st.write('STL - GRU')
-            evaluation(stl_y_test_inv,  stl_final_predictions_test)
+            stl_mae,stl_rmse,stl_mape = evaluation(stl_y_test_inv,  stl_final_predictions_test)
+
+        comp = {'Model': ['stk_gru', 'bid_gru', 'att_gru', 'stl_gru'],
+        'MAE': [stk_mae, bid_mae, att_mae, stl_mae],
+        'RMSE': [stk_rmse, bid_rmse, att_rmse, stl_rmse],
+        'MAPE': [stk_mape, bid_mape, att_mape, stl_mape]
+        }
+        df_comp = pd.DataFrame(comp)
+        
+        comp_plot(df_comp)
 
         #forcasting
         write_forecast()
