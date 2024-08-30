@@ -362,7 +362,8 @@ def stl_gru_models():
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
 
     stl_model = Sequential()
-    stl_model.add(GRU(64, return_sequences=True, input_shape=(time_step, 1)))
+    stl_model.add(GRU(64, return_sequences=True,kernel_regularizer=l2(0.01), input_shape=(time_step, 1)))
+    stl_model.add(Dropout(0.2))
     stl_model.add(GRU(64))
     stl_model.add(Dense(1))
     adam = Adam(learning_rate=0.001)
@@ -434,7 +435,7 @@ def proccess(option):
     # load model
     if option == 'Stacked GRU':
         # model = tf.keras.models.load_model('./models/stk_modelgru.h5')
-        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, time_steps, scaler, stk_next_month= stk_gru_models()
+        stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, stk_next_month= stk_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -452,7 +453,7 @@ def proccess(option):
 
     elif option == 'Bidirectional GRU':
         # model = tf.keras.models.load_model('./models/bid_modelgru.h5')
-        bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, time_steps, scaler, bid_next_month= bid_gru_models()
+        bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, bid_next_month= bid_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -470,7 +471,7 @@ def proccess(option):
 
     elif option == 'Attention + GRU':
         # model = tf.keras.models.load_model('./models/att_modelgru.h5')
-        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, time_step, scaler, att_next_month= att_gru_models()
+        test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, att_next_month= att_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
@@ -488,7 +489,7 @@ def proccess(option):
 
     elif option == 'STL + GRU':
         # model = tf.keras.models.load_model('./models/stl_modelgru.h5')
-        stl_final_predictions_test, stl_y_test_inv, stl_y_train_inv, stl_final_predictions_train, scaler, data, stl_next_month= stl_gru_models()
+        stl_final_predictions_test, stl_y_test_inv, stl_y_train_inv, stl_final_predictions_train, data, stl_next_month= stl_gru_models()
             
         visual_actpred_data()
         data_size = int(len(data) * 0.8)
