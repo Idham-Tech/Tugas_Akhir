@@ -6,4 +6,4 @@ keras
 scikit-learn
 plotly
 streamlit
-statsmodels.tsa.seasonal
+statsmodels
