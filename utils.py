@@ -111,7 +111,7 @@ def stk_gru_models():
     data_scaled = scaler.fit_transform(data_unscaled)
 
     # Split data into training and testing sets
-    train_size = int(len(data_scaled) * 0.8)
+    train_size = int(len(data_scaled) * 0.75)
     train, test = data_scaled[:train_size], data_scaled[train_size:]
 
     # Create sequences for training the GRU model
@@ -174,7 +174,7 @@ def bid_gru_models():
     data_scaled = scaler.fit_transform(data_unscaled)
 
     # Split data into training and testing sets
-    train_size = int(len(data_scaled) * 0.8)
+    train_size = int(len(data_scaled) * 0.75)
     train, test = data_scaled[:train_size], data_scaled[train_size:]
 
     # Create sequences for training the GRU model
@@ -236,7 +236,7 @@ def att_gru_models():
     data_scaled = scaler.fit_transform(data_unscaled)
 
     # Split data into training and testing sets
-    train_size = int(len(data_scaled) * 0.8)
+    train_size = int(len(data_scaled) * 0.75)
     train, test = data_scaled[:train_size], data_scaled[train_size:]
 
     # Create sequences for training the GRU model
@@ -337,7 +337,7 @@ def stl_gru_models():
     data = pd.read_csv('./Keseluruhan NonMigas.csv', parse_dates=['date'], index_col='date')
     
     # Split data into training and testing sets (80% train, 20% test)
-    train_size = int(len(data) * 0.8)
+    train_size = int(len(data) * 0.75)
     train_data, test_data = data[:train_size], data[train_size:]
 
     # STL decomposition on training set
@@ -444,7 +444,7 @@ def proccess(option):
         stk_test_predictions_inv, stk_y_test_inv, stk_train_predictions_inv, stk_y_train_inv, data, stk_next_month= stk_gru_models()
             
         visual_actpred_data()
-        data_size = int(len(data) * 0.8)
+        data_size = int(len(data) * 0.75)
         date_train, date_test = data[:data_size], data[data_size:]
         plot_train(date_train.index, stk_y_train_inv, stk_train_predictions_inv)
         plot_predict(date_test.index, stk_y_test_inv, stk_test_predictions_inv)
@@ -462,7 +462,7 @@ def proccess(option):
         bid_test_predictions_inv, bid_y_test_inv, bid_train_predictions_inv, bid_y_train_inv, data, bid_next_month= bid_gru_models()
             
         visual_actpred_data()
-        data_size = int(len(data) * 0.8)
+        data_size = int(len(data) * 0.75)
         date_train, date_test = data[:data_size], data[data_size:]
         plot_train(date_train.index, bid_y_train_inv, bid_train_predictions_inv)
         plot_predict(date_test.index, bid_y_test_inv, bid_test_predictions_inv)
@@ -480,7 +480,7 @@ def proccess(option):
         test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, att_next_month= att_gru_models()
             
         visual_actpred_data()
-        data_size = int(len(data) * 0.8)
+        data_size = int(len(data) * 0.75)
         date_train, date_test = data[:data_size], data[data_size:]
         plot_train(date_train.index, att_Y_train_inv, train_predictions_attention_gru_inv)
         plot_predict(date_test.index, att_Y_test_inv, test_predictions_attention_gru_inv)
@@ -498,7 +498,7 @@ def proccess(option):
         stl_final_predictions_test, stl_y_test_inv, stl_y_train_inv, stl_final_predictions_train, data, stl_next_month= stl_gru_models()
             
         visual_actpred_data()
-        data_size = int(len(data) * 0.8)
+        data_size = int(len(data) * 0.75)
         date_train, date_test = data[:data_size], data[data_size:]
         stl_plot_train(date_train, stl_y_train_inv, stl_final_predictions_train)
         stl_plot_predict(date_test, stl_y_test_inv, stl_final_predictions_test)
@@ -520,7 +520,7 @@ def proccess(option):
         stl_final_predictions_test, stl_y_test_inv, stl_y_train_inv, stl_final_predictions_train, data, stl_next_month= stl_gru_models()
 
         visual_actpred_data()
-        data_size = int(len(data) * 0.8)
+        data_size = int(len(data) * 0.75)
         date_train, date_test = data[:data_size], data[data_size:]
         
         st.write('Stacked GRU')
