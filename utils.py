@@ -130,7 +130,7 @@ def stk_gru_models():
 
     def build_Stacked_GRU(input_shape):
         model = models.Sequential()
-        model.add(GRU(64, return_sequences=True, input_shape=input_shape))
+        model.add(GRU(64, return_sequences=True,kernel_regularizer=l2(0.01), input_shape=input_shape))
         model.add(Dropout(0.2))
         model.add(GRU(64, return_sequences=True))
         model.add(GRU(64))
@@ -145,7 +145,7 @@ def stk_gru_models():
     # Build the model
     stk_model = build_Stacked_GRU(input_shape)
 
-    history = stk_model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test), verbose=1, validation_split=0.2)
+    history = stk_model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test), verbose=1, validation_split=0.2)
     # Make predictions on the training set
     train_predictions = stk_model.predict(X_train)
     # Make predictions on the test set
@@ -207,7 +207,7 @@ def bid_gru_models():
     # Build the model
     bid_model = build_bidirectional_gru(input_shape)
 
-    history = bid_model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test))    # Make predictions on the training set
+    history = bid_model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test))    # Make predictions on the training set
 
     # Make predictions
     train_predictions = bid_model.predict(X_train)
@@ -310,7 +310,7 @@ def att_gru_models():
     # Build the model
     model_attention_gru = build_attention_gru_model(time_steps=time_step, features=1)
 
-    history = model_attention_gru.fit(X_train, Y_train, epochs=20, batch_size=32, verbose=1, validation_data=(X_test, Y_test))
+    history = model_attention_gru.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1, validation_data=(X_test, Y_test))
 
     # Make predictions
     test_predictions_attention_gru = model_attention_gru.predict(X_test)
@@ -375,7 +375,7 @@ def stl_gru_models():
     adam = Adam(learning_rate=0.001)
     stl_model.compile(optimizer=adam, loss='mean_squared_error')
 
-    history = stl_model.fit(X_train, Y_train, epochs=20, batch_size=32, verbose=1, validation_split=0.2)
+    history = stl_model.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1, validation_split=0.2)
     
     # Perform STL decomposition on test set
     stl_test = STL(test_data['NonMigas'], seasonal=13)
