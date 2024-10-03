@@ -69,7 +69,7 @@ def forcast(model, data_scaled, time_steps, scaler):
     next_month_prediction = scaler.inverse_transform(next_month_prediction)
     return next_month_prediction
     
-def forcast_stl(model, data, time_step, scaler):
+def forcast_stl(model, data, time_steps, scaler):
     stl_last = STL(data['NonMigas'], seasonal=13)
     result_last = stl_last.fit()
 
@@ -81,9 +81,9 @@ def forcast_stl(model, data, time_step, scaler):
     # We use the last few residuals from the training set to predict the next one
     residuals = result_last.resid
     residuals_scaled = scaler.transform(residuals.values.reshape(-1, 1))
-    last_residuals = residuals_scaled[-time_step:]
+    last_residuals = residuals_scaled[-time_steps:]
 
-    X_next = last_residuals.reshape(1, time_step, 1)
+    X_next = last_residuals.reshape(1, time_steps, 1)
 
 
     # Predict the residual for the next month
@@ -240,22 +240,18 @@ def att_gru_models():
     train, test = data_scaled[:train_size], data_scaled[train_size:]
 
     # Create sequences for training the GRU model
-    def create_dataset(data, time_step=1):
-        X, Y = [], []
-        for i in range(len(data)-time_step-1):
-            X.append(data[i:(i+time_step), 0])
-            Y.append(data[i + time_step, 0])
-        return np.array(X), np.array(Y)
+    def create_sequences(data, time_steps):
+        sequences = []
+        labels = []
+        for i in range(len(data) - time_steps):
+            sequences.append(data[i:i + time_steps])
+            labels.append(data[i + time_steps])
+        return np.array(sequences), np.array(labels)
 
-    time_step = 3 
+    time_steps = 3  # Number of previous time steps to consider
 
-    # Siapkan data training dan testing
-    X_train, Y_train = create_dataset(train, time_step)
-    X_test, Y_test = create_dataset(test, time_step)
-
-    # Ubah input menjadi [samples, time steps, features]
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-    X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+    X_train, y_train = create_sequences(train, time_steps)
+    X_test, y_test = create_sequences(test, time_steps)
 
     class AttentionLayer(Layer):
         def __init__(self, **kwargs):
@@ -308,9 +304,9 @@ def att_gru_models():
 
 
     # Build the model
-    model_attention_gru = build_attention_gru_model(time_steps=time_step, features=1)
+    model_attention_gru = build_attention_gru_model(time_steps=time_steps, features=1)
 
-    history = model_attention_gru.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1, validation_data=(X_test, Y_test))
+    history = model_attention_gru.fit(X_train, y_train, epochs=50, batch_size=32, verbose=1, validation_data=(X_test, y_test))
 
     # Make predictions
     test_predictions_attention_gru = model_attention_gru.predict(X_test)
@@ -321,12 +317,12 @@ def att_gru_models():
     train_predictions_attention_gru_inv = scaler.inverse_transform(train_predictions_attention_gru)
 
     # Inverse transform actual Y_test values
-    att_Y_test_inv = scaler.inverse_transform(Y_test.reshape(-1, 1))
+    att_Y_test_inv = scaler.inverse_transform(y_test.reshape(-1, 1))
 
     # Inverse transform actual Y_test values
-    att_Y_train_inv = scaler.inverse_transform(Y_train.reshape(-1, 1))
+    att_Y_train_inv = scaler.inverse_transform(y_train.reshape(-1, 1))
 
-    next_month = forcast(model_attention_gru, data_scaled, time_step, scaler)
+    next_month = forcast(model_attention_gru, data_scaled, time_steps, scaler)
     att_next_month = np.float64(next_month)
 
     return test_predictions_attention_gru_inv, att_Y_test_inv, train_predictions_attention_gru_inv, att_Y_train_inv, data, att_next_month
@@ -336,7 +332,7 @@ def stl_gru_models():
     # Preprocess the data
     data = pd.read_csv('./Keseluruhan NonMigas.csv', parse_dates=['date'], index_col='date')
     
-    # Split data into training and testing sets (80% train, 20% test)
+    # Split data into training and testing sets (75% train, 25% test)
     train_size = int(len(data) * 0.75)
     train_data, test_data = data[:train_size], data[train_size:]
 
@@ -353,29 +349,30 @@ def stl_gru_models():
     scaler = MinMaxScaler()
     residual_train_scaled = scaler.fit_transform(residual_train.values.reshape(-1, 1))
 
-    def create_dataset(data, time_step=1):
-        X, Y = [], []
-        for i in range(len(data)-time_step-1):
-            a = data[i:(i+time_step), 0]
-            X.append(a)
-            Y.append(data[i + time_step, 0])
-        return np.array(X), np.array(Y)
+    # Create sequences for training the GRU model
+    def create_sequences(data, time_steps):
+        sequences = []
+        labels = []
+        for i in range(len(data) - time_steps):
+            sequences.append(data[i:i + time_steps])
+            labels.append(data[i + time_steps])
+        return np.array(sequences), np.array(labels)
 
-    time_step = 3  # Example: use past 12 months to predict the next value
-    X_train, Y_train = create_dataset(residual_train_scaled, time_step)
+    time_steps = 3  # Number of previous time steps to consider
+    X_train, y_train = create_sequences(residual_train_scaled, time_steps)
 
     # Reshape for GRU input (samples, time steps, features)
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
 
     stl_model = Sequential()
-    stl_model.add(GRU(64, return_sequences=True,kernel_regularizer=l2(0.01), input_shape=(time_step, 1)))
+    stl_model.add(GRU(64, return_sequences=True,kernel_regularizer=l2(0.01), input_shape=(time_steps, 1)))
     stl_model.add(Dropout(0.2))
     stl_model.add(GRU(64))
     stl_model.add(Dense(1))
     adam = Adam(learning_rate=0.001)
     stl_model.compile(optimizer=adam, loss='mean_squared_error')
 
-    history = stl_model.fit(X_train, Y_train, epochs=50, batch_size=32, verbose=1, validation_split=0.2)
+    history = stl_model.fit(X_train, y_train, epochs=50, batch_size=32, verbose=1, validation_split=0.2)
     
     # Perform STL decomposition on test set
     stl_test = STL(test_data['NonMigas'], seasonal=13)
@@ -390,7 +387,7 @@ def stl_gru_models():
     residual_test_scaled = scaler.transform(residual_test.values.reshape(-1, 1))
 
     # Prepare test data for GRU prediction
-    X_test, Y_test = create_dataset(residual_test_scaled, time_step)
+    X_test, y_test = create_sequences(residual_test_scaled, time_steps)
 
     # Reshape test data
     X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
@@ -412,7 +409,7 @@ def stl_gru_models():
     stl_y_train_inv = train_data['NonMigas'][-len(final_predictions_train):]
     stl_y_test_inv = test_data['NonMigas'][-len(final_predictions_test):]
 
-    stl_next_month = forcast_stl(stl_model, data, time_step, scaler)
+    stl_next_month = forcast_stl(stl_model, data, time_steps, scaler)
 
     return final_predictions_test, stl_y_test_inv, stl_y_train_inv, final_predictions_train, data, stl_next_month
 
