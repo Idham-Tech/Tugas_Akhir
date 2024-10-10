@@ -23,7 +23,7 @@ st.sidebar.write('Data as on [Badan Pusat Statistik](https://www.bps.go.id/id) e
 option = st.sidebar.selectbox('What would you like to predicted?',('Stacked GRU', 'Bidirectional GRU', 'Attention + GRU', 'STL + GRU','Compare'), key = 'tick')
 st.sidebar.write('You selected:', st.session_state.tick)
 predict = st.sidebar.button('Predict')
-st.sidebar.info('''This Project is used for only learning and development process.😊👩🏻‍🎓👩🏻‍💻''')
+st.sidebar.info('''This Project is used for only learning and development process.😊''')
 
 try:
     if predict:
