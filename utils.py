@@ -1,7 +1,7 @@
 import streamlit as st
 from plotly import graph_objs as go 
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,r2_score
 import numpy as np 
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -98,8 +98,9 @@ def evaluation(y_test_inv, test_predictions):
     test_mae = mean_absolute_error(y_test_inv, test_predictions)
     test_mape = mean_absolute_percentage_error(y_test_inv, test_predictions) * 100
     test_rmse = np.sqrt(mean_squared_error(y_test_inv, test_predictions))
-    st.write('MAE:', test_mae, '  \nRMSE:', test_rmse, '  \nMAPE:', test_mape)
-    return test_mae, test_rmse, test_mape
+    test_r2 = r2_score(y_test_inv, test_predictions)
+    st.write('MAE:', test_mae, '  \nRMSE:', test_rmse, '  \nMAPE:', test_mape, '  \nR^2:', test_r2)
+    return test_mae, test_rmse, test_mape, test_r2
 
 def stk_gru_models():
     # Preprocess the data
@@ -123,7 +124,7 @@ def stk_gru_models():
             labels.append(data[i + time_steps])
         return np.array(sequences), np.array(labels)
 
-    time_steps = 3  # Number of previous time steps to consider
+    time_steps = 3  
 
     X_train, y_train = create_sequences(train, time_steps)
     X_test, y_test = create_sequences(test, time_steps)
@@ -186,7 +187,7 @@ def bid_gru_models():
             labels.append(data[i + time_steps])
         return np.array(sequences), np.array(labels)
 
-    time_steps = 3  # Number of previous time steps to consider
+    time_steps = 3  
 
     X_train, y_train = create_sequences(train, time_steps)
     X_test, y_test = create_sequences(test, time_steps)
@@ -194,7 +195,7 @@ def bid_gru_models():
     def build_bidirectional_gru(input_shape):
         model = models.Sequential()
         model.add(layers.Bidirectional(layers.GRU(64, return_sequences=True, kernel_regularizer=l2(0.01)), input_shape=input_shape))
-        model.add(Dropout(0.2))
+        model.add(Dropout(0.1))
         model.add(layers.Bidirectional(layers.GRU(64)))
         model.add(layers.Dense(1))
         adam = Adam(learning_rate=0.001)
@@ -248,7 +249,7 @@ def att_gru_models():
             labels.append(data[i + time_steps])
         return np.array(sequences), np.array(labels)
 
-    time_steps = 3  # Number of previous time steps to consider
+    time_steps = 3  
 
     X_train, y_train = create_sequences(train, time_steps)
     X_test, y_test = create_sequences(test, time_steps)
@@ -278,7 +279,7 @@ def att_gru_models():
 
         # 1st GRU layer with return sequences and L2 regularization
         gru_output = GRU(64, return_sequences=True, kernel_regularizer=l2(0.01))(inputs)
-        dropout_1 = Dropout(0.2)(gru_output)  # Dropout layer
+        dropout_1 = Dropout(0.3)(gru_output)  # Dropout layer
 
         # 2nd GRU layer with return sequences and L2 regularization
         gru_output_2 = GRU(64, return_sequences=True)(dropout_1)
@@ -358,16 +359,16 @@ def stl_gru_models():
             labels.append(data[i + time_steps])
         return np.array(sequences), np.array(labels)
 
-    time_steps = 3  # Number of previous time steps to consider
+    time_steps = 3  
     X_train, y_train = create_sequences(residual_train_scaled, time_steps)
 
     # Reshape for GRU input (samples, time steps, features)
     X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
 
     stl_model = Sequential()
-    stl_model.add(GRU(64, return_sequences=True,kernel_regularizer=l2(0.01), input_shape=(time_steps, 1)))
-    stl_model.add(Dropout(0.2))
-    stl_model.add(GRU(64))
+    stl_model.add(GRU(128, return_sequences=True,kernel_regularizer=l2(0.01), input_shape=(time_steps, 1)))
+    stl_model.add(Dropout(0.3))
+    stl_model.add(GRU(128))
     stl_model.add(Dense(1))
     adam = Adam(learning_rate=0.001)
     stl_model.compile(optimizer=adam, loss='mean_squared_error')
@@ -537,21 +538,22 @@ def proccess(option):
         col4, col5, col6, col7 = st.columns(4)
         with col4:
             st.write('Stacked GRU')
-            stk_mae,stk_rmse,stk_mape = evaluation(stk_y_test_inv, stk_test_predictions_inv)
+            stk_mae,stk_rmse,stk_mape,stk_r2 = evaluation(stk_y_test_inv, stk_test_predictions_inv)
         with col5:
             st.write('Bidirectional GRU')
-            bid_mae,bid_rmse,bid_mape = evaluation(bid_y_test_inv,  bid_test_predictions_inv)
+            bid_mae,bid_rmse,bid_mape, bid_r2 = evaluation(bid_y_test_inv,  bid_test_predictions_inv)
         with col6:
             st.write('Attention Based - GRU')
-            att_mae,att_rmse,att_mape = evaluation(att_Y_test_inv,  test_predictions_attention_gru_inv)
+            att_mae,att_rmse,att_mape, att_r2 = evaluation(att_Y_test_inv,  test_predictions_attention_gru_inv)
         with col7:
             st.write('STL - GRU')
-            stl_mae,stl_rmse,stl_mape = evaluation(stl_y_test_inv,  stl_final_predictions_test)
+            stl_mae,stl_rmse,stl_mape, stl_r2 = evaluation(stl_y_test_inv,  stl_final_predictions_test)
 
         comp = {'Model': ['stk_gru', 'bid_gru', 'att_gru', 'stl_gru'],
         'MAE': [stk_mae, bid_mae, att_mae, stl_mae],
         'RMSE': [stk_rmse, bid_rmse, att_rmse, stl_rmse],
-        'MAPE': [stk_mape, bid_mape, att_mape, stl_mape]
+        'MAPE': [stk_mape, bid_mape, att_mape, stl_mape],
+        'R^2' : [stk_r2, bid_r2, att_r2, stl_r2]
         }
         df_comp = pd.DataFrame(comp)
         
@@ -559,16 +561,16 @@ def proccess(option):
 
         #forcasting
         write_forecast()
-        col8, col9, col10, col11 = st.columns(4)
-        with col8:
+        col9, col10, col11, col12 = st.columns(4)
+        with col9:
             st.write('Stacked GRU')
             st.write('🙌🏻Next month export price forecast:', stk_next_month)
-        with col9:
+        with col10:
             st.write('Bidirectional GRU')
             st.write('🙌🏻Next month export price forecast:', bid_next_month)
-        with col10:
+        with col11:
             st.write('Attention Based - GRU')
             st.write('🙌🏻Next month export price forecast:', att_next_month)  
-        with col11:
+        with col12:
             st.write('STL - GRU')
             st.write('🙌🏻Next month export price forecast:', stl_next_month)  
