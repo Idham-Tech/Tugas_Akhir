@@ -414,12 +414,7 @@ def stl_gru_models():
 
     return final_predictions_test, stl_y_test_inv, stl_y_train_inv, final_predictions_train, data, stl_next_month
 
-def write_gru():
-    st.write('Evaluation of GRU Model')
-def write_xgboost():
-    st.write('Evaluation of XGBoost Model')
-def write_hybrid():
-    st.write('Evaluation of hybrid GRU-XGBoost Model')
+
 def data_act():
     st.subheader('Data Actual')
 def visual_data():
@@ -537,16 +532,16 @@ def proccess(option):
         write_evaluation()
         col4, col5, col6, col7 = st.columns(4)
         with col4:
-            st.write('Stacked GRU')
+            st.write(f"**{'Stacked GRU'}**")
             stk_mae,stk_rmse,stk_mape,stk_r2 = evaluation(stk_y_test_inv, stk_test_predictions_inv)
         with col5:
-            st.write('Bidirectional GRU')
+            st.write(f"**{'Bidirectional GRU'}**")
             bid_mae,bid_rmse,bid_mape, bid_r2 = evaluation(bid_y_test_inv,  bid_test_predictions_inv)
         with col6:
-            st.write('Attention Based - GRU')
+            st.write(f"**{'Attention Based - GRU'}**")
             att_mae,att_rmse,att_mape, att_r2 = evaluation(att_Y_test_inv,  test_predictions_attention_gru_inv)
         with col7:
-            st.write('STL - GRU')
+            st.write(f"**{'STL - GRU'}**")
             stl_mae,stl_rmse,stl_mape, stl_r2 = evaluation(stl_y_test_inv,  stl_final_predictions_test)
 
         comp = {'Model': ['stk_gru', 'bid_gru', 'att_gru', 'stl_gru'],
